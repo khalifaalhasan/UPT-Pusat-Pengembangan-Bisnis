@@ -1,4 +1,4 @@
-import ServiceDetailPage from "@/components/pages/DetailService";
+import ServiceDetailPage from "@/components/pages/Service/DetailService";
 
 interface PageProps {
   params: Promise<{ slug: string }>;
