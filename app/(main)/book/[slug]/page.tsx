@@ -6,6 +6,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { BookingSkeleton } from "@/components/ui/Skeleton";
 import { User } from "@supabase/supabase-js";
 import { differenceInDays, differenceInHours } from "date-fns";
+import { CheckCircle2 } from "lucide-react"; // Tambah Icon
 
 // Helper format rupiah
 const formatRupiah = (num: number) =>
@@ -37,30 +38,30 @@ export default function BookingProcessPage({
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
 
-  // State Form Input (Sesuai Screenshot)
+  // State Form Input
   const [fullName, setFullName] = useState("");
   const [phone, setPhone] = useState("");
   const [email, setEmail] = useState("");
-  const [guestName, setGuestName] = useState(""); // "Pesan untuk orang lain" logic
+  const [guestName, setGuestName] = useState("");
   const [isForSelf, setIsForSelf] = useState(true);
+
+  // State Opsi Pembayaran (Fitur Baru)
+  const [paymentOption, setPaymentOption] = useState<"full" | "dp">("full");
 
   // 1. Fetch Data Service & User
   useEffect(() => {
     const initData = async () => {
-      // Cek User
       const {
         data: { user },
       } = await supabase.auth.getUser();
       setUser(user);
 
-      // Auto fill jika user login
       if (user) {
         setFullName(user.user_metadata?.full_name || "");
         setEmail(user.email || "");
         setGuestName(user.user_metadata?.full_name || "");
       }
 
-      // Ambil Service Info
       const { data: serviceData } = await supabase
         .from("services")
         .select("*")
@@ -74,7 +75,6 @@ export default function BookingProcessPage({
     initData();
   }, [slug, supabase]);
 
-  // Handle Checkbox "Pesanan ini untuk saya"
   useEffect(() => {
     if (isForSelf) {
       setGuestName(fullName);
@@ -83,7 +83,7 @@ export default function BookingProcessPage({
     }
   }, [isForSelf, fullName]);
 
-  // Kalkulasi Harga
+  // Kalkulasi Harga Total (Full Price)
   const calculateTotal = () => {
     if (!service || !startDateStr || !endDateStr) return 0;
     const start = new Date(startDateStr);
@@ -95,12 +95,14 @@ export default function BookingProcessPage({
     return (differenceInDays(end, start) || 1) * service.price;
   };
 
-  const totalPrice = calculateTotal();
+  const fullPrice = calculateTotal();
 
-  // SUBMIT BOOKING (Baru insert ke DB disini)
+  // Kalkulasi Yang Harus Dibayar Sekarang (Based on Option)
+  const amountToPay = paymentOption === "full" ? fullPrice : fullPrice * 0.5;
+
+  // SUBMIT BOOKING
   const handleSubmit = async () => {
     if (!user) {
-      // Simpan URL saat ini agar setelah login balik lagi kesini
       const currentUrl = `/book/${slug}?start=${startDateStr}&end=${endDateStr}`;
       router.push(`/login?redirect=${encodeURIComponent(currentUrl)}`);
       return;
@@ -114,6 +116,7 @@ export default function BookingProcessPage({
     setSubmitting(true);
 
     try {
+      // 1. Buat Booking Utama (Status Unpaid/Partial)
       const { data, error } = await supabase
         .from("bookings")
         .insert({
@@ -121,13 +124,12 @@ export default function BookingProcessPage({
           user_id: user.id,
           start_time: new Date(startDateStr!).toISOString(),
           end_time: new Date(endDateStr!).toISOString(),
-          total_price: totalPrice,
+          total_price: fullPrice, // Harga asli tetap full
           status: "pending_payment",
-          payment_status: "unpaid",
-          // Simpan data kontak yang diinput user
-          customer_name: guestName, // Nama tamu
-          customer_email: email, // Email kontak
-          customer_phone: phone, // HP kontak
+          payment_status: "unpaid", // Nanti update otomatis jadi partial/paid setelah bayar
+          customer_name: guestName,
+          customer_email: email,
+          customer_phone: phone,
           notes: isForSelf
             ? "Pesan untuk diri sendiri"
             : `Dipesankan oleh ${fullName}`,
@@ -137,22 +139,22 @@ export default function BookingProcessPage({
 
       if (error) throw error;
 
-      // Redirect ke Payment
-      router.push(`/payment/${data.id}`);
+      // 2. Redirect ke Payment Page
+      // Kita kirim parameter tambahan 'type' agar halaman payment tahu dia harus bayar full atau DP
+      router.push(`/payment/${data.id}?type=${paymentOption}`);
     } catch (err: any) {
       alert("Gagal memproses pesanan: " + err.message);
       setSubmitting(false);
     }
   };
 
-  // TAMPILKAN LOADING SKELETON
   if (loading) return <BookingSkeleton />;
   if (!service)
     return <div className="p-10 text-center">Layanan tidak ditemukan</div>;
 
   return (
     <div className="min-h-screen bg-gray-50 pb-20">
-      {/* Header Simple ala Traveloka */}
+      {/* Header */}
       <div className="bg-white shadow-sm border-b border-gray-200 py-4 mb-8">
         <div className="container mx-auto px-4">
           <h1 className="text-xl font-bold text-gray-800">
@@ -163,7 +165,7 @@ export default function BookingProcessPage({
 
       <div className="container mx-auto px-4">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* KOLOM KIRI: FORM PENGISIAN DATA */}
+          {/* KOLOM KIRI */}
           <div className="lg:col-span-2 space-y-6">
             {/* CARD 1: Data Pemesan */}
             <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
@@ -255,9 +257,6 @@ export default function BookingProcessPage({
                     onChange={(e) => setGuestName(e.target.value)}
                     placeholder="Nama tamu yang akan menginap"
                   />
-                  <p className="text-xs text-gray-400 mt-1">
-                    Isi sesuai KTP tamu yang akan check-in.
-                  </p>
                 </div>
               )}
 
@@ -266,6 +265,62 @@ export default function BookingProcessPage({
                   Tamu: <strong>{fullName || "-"}</strong>
                 </div>
               )}
+            </div>
+
+            {/* CARD 3: OPSI PEMBAYARAN (DP / FULL) - FITUR BARU */}
+            <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
+              <div className="flex items-center gap-3 mb-6">
+                <div className="bg-green-100 p-2 rounded-full text-green-600">
+                  💳
+                </div>
+                <h2 className="text-lg font-bold text-gray-800">
+                  Opsi Pembayaran
+                </h2>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {/* Opsi 1: Bayar Lunas */}
+                <div
+                  onClick={() => setPaymentOption("full")}
+                  className={`p-4 border-2 rounded-xl cursor-pointer transition relative ${
+                    paymentOption === "full"
+                      ? "border-blue-600 bg-blue-50"
+                      : "border-gray-200 hover:border-blue-300"
+                  }`}
+                >
+                  {paymentOption === "full" && (
+                    <CheckCircle2 className="absolute top-4 right-4 text-blue-600 w-6 h-6" />
+                  )}
+                  <p className="font-bold text-gray-900">Bayar Lunas (Full)</p>
+                  <p className="text-sm text-gray-500 mt-1">
+                    Bayar penuh sekarang.
+                  </p>
+                  <p className="text-lg font-bold text-blue-600 mt-3">
+                    {formatRupiah(fullPrice)}
+                  </p>
+                </div>
+
+                {/* Opsi 2: DP 50% */}
+                <div
+                  onClick={() => setPaymentOption("dp")}
+                  className={`p-4 border-2 rounded-xl cursor-pointer transition relative ${
+                    paymentOption === "dp"
+                      ? "border-blue-600 bg-blue-50"
+                      : "border-gray-200 hover:border-blue-300"
+                  }`}
+                >
+                  {paymentOption === "dp" && (
+                    <CheckCircle2 className="absolute top-4 right-4 text-blue-600 w-6 h-6" />
+                  )}
+                  <p className="font-bold text-gray-900">Bayar DP 50%</p>
+                  <p className="text-sm text-gray-500 mt-1">
+                    Amankan jadwal dulu.
+                  </p>
+                  <p className="text-lg font-bold text-orange-600 mt-3">
+                    {formatRupiah(fullPrice * 0.5)}
+                  </p>
+                </div>
+              </div>
             </div>
           </div>
 
@@ -299,16 +354,18 @@ export default function BookingProcessPage({
               {/* Breakdown Harga */}
               <div className="space-y-3 text-sm text-gray-600 mb-6">
                 <div className="flex justify-between">
-                  <span>Harga Sewa</span>
-                  <span>{formatRupiah(totalPrice)}</span>
+                  <span>Harga Sewa Total</span>
+                  <span>{formatRupiah(fullPrice)}</span>
                 </div>
-                <div className="flex justify-between">
-                  <span>Pajak & Biaya</span>
-                  <span>Rp 0</span>
+                <div className="flex justify-between text-green-600 font-medium">
+                  <span>Opsi Bayar</span>
+                  <span>
+                    {paymentOption === "full" ? "Lunas (100%)" : "DP (50%)"}
+                  </span>
                 </div>
                 <div className="flex justify-between font-bold text-lg text-blue-600 pt-3 border-t border-gray-100">
-                  <span>Total Pembayaran</span>
-                  <span>{formatRupiah(totalPrice)}</span>
+                  <span>Yang Harus Dibayar</span>
+                  <span>{formatRupiah(amountToPay)}</span>
                 </div>
               </div>
 
