@@ -1,9 +1,9 @@
-# 🏢 Pusat Pengembangan Bisnis
+# 🏢 Business Development Center
 
 ### Modern Booking Platform
 
-Platform reservasi aset bisnis dengan pengalaman ala aplikasi travel seperti **Traveloka**.  
-Mendukung pembayaran **DP/Lunas**, verifikasi admin real-time, dan **E-Ticket berbasis QR Code**.
+A modern business asset reservation system inspired by the seamless booking flow of **Traveloka**.  
+Supports **Down Payment / Full Payment**, real-time admin verification, and **QR-Based E‑Ticketing**.
 
 ---
 
@@ -22,74 +22,66 @@ Mendukung pembayaran **DP/Lunas**, verifikasi admin real-time, dan **E-Ticket be
 
 ---
 
-## 🌟 Fitur Utama
+## 🌟 Key Features
 
-### 👤 Untuk Pengguna
+### 👤 User Features
 
-✅ **Traveloka-Style Booking Flow**  
-Pilih Tanggal → Isi Data → Bayar
+- **Traveloka‑Style Booking Flow**  
+  Choose Date → Fill Details → Make Payment
 
-✅ **Smart Calendar**
+- **Smart Calendar**  
+  - Blocks *Pending* & *Confirmed* dates  
+  - Supports Daily & Hourly rentals
 
-- Block tanggal _Pending_ & _Confirmed_
-- Sewa Harian & Per Jam
+- **Flexible Payment**  
+  - Full Payment / 50% Down Payment  
+  - Prevents double payments
 
-✅ **Flexible Payment**
+- **User Dashboard**  
+  - Real‑time status updates  
+  - Upload payment proof  
+  - Booking history
 
-- Lunas / DP 50%
-- Anti double-payment
-
-✅ **User Dashboard**
-
-- Status real-time
-- Upload bukti transfer
-- Riwayat pesanan
-
-✅ **Wishlist**
-Simpan layanan favorit.
-
-✅ **Form Persistence**
-Data form tidak hilang saat refresh.
-
-✅ **E-Ticket PDF + QR Code**
-Aktif setelah pembayaran lunas.
+- **Wishlist** to save preferred services  
+- **Form Persistence** using localStorage  
+- **E‑Ticket (PDF) + QR Code** activated upon payment completion
 
 ---
 
-### 🛡️ Untuk Admin
+### 🛡️ Admin Features
 
-✅ Dashboard Manajemen  
-✅ Verifikasi Pembayaran (Approve/Reject)  
-✅ CRUD Services + Multi-Image Upload  
-✅ Dynamic Spec (JSONB)  
-✅ Auto Slug URL  
-✅ QR Scanner via Kamera HP/Laptop
-
----
-
-## 🛠️ Teknologi
-
-| Kategori        | Teknologi                   |
-| --------------- | --------------------------- |
-| Framework       | Next.js 15 (App Router)     |
-| Bahasa          | TypeScript                  |
-| Database & Auth | Supabase (PostgreSQL)       |
-| UI              | Tailwind CSS + Shadcn/ui    |
-| Form            | React Hook Form + Zod       |
-| Tanggal         | Date-fns + React-day-picker |
-| PDF             | @react-pdf/renderer         |
-| QR Scanner      | @yudiel/react-qr-scanner    |
-| Notifikasi      | Sonner Toast                |
+- Management Dashboard  
+- Verify Payments (Approve / Reject)  
+- CRUD Services + Multiple Image Upload  
+- Dynamic Spec (JSONB)  
+- Auto‑Generated Slug URL  
+- Built‑in QR Scanner (Camera Support)
 
 ---
 
-## 🚀 Cara Menjalankan
+## 🛠️ Technologies Used
+
+| Category          | Technology                   |
+| ----------------- | ----------------------------- |
+| Framework         | Next.js 15 (App Router)      |
+| Language          | TypeScript                   |
+| Database & Auth   | Supabase (PostgreSQL)        |
+| UI                | TailwindCSS + Shadcn/ui      |
+| Forms             | React Hook Form + Zod        |
+| Date Utilities    | Date-fns + React-day-picker  |
+| PDF Renderer      | @react-pdf/renderer          |
+| QR Scanner        | @yudiel/react-qr-scanner     |
+| Notifications     | Sonner Toast                 |
+
+---
+
+## 🚀 Getting Started
 
 ### 1️⃣ Clone Repository
 
 ```bash
-git clone https://github.com/username-anda/ppbisnis-project.git
-cd ppbisnis-project
+git clone https://github.com/username/project.git
+cd project
 ```
 
 ### 2️⃣ Install Dependencies
@@ -98,40 +90,40 @@ cd ppbisnis-project
 npm install
 ```
 
-### 3️⃣ Setup Environment
+### 3️⃣ Configure Environment Variables
 
-Buat file **.env.local**:
+Create a **.env.local** file:
 
 ```
 NEXT_PUBLIC_SUPABASE_URL=https://your-project-id.supabase.co
 NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key-here
 ```
 
-### 4️⃣ Setup Database di Supabase
+### 4️⃣ Configure Supabase Database
 
-Pastikan tabel berikut ada:
+Ensure the following tables exist:
 
-- profiles
-- categories
-- services
-- bookings
-- payments
-- saved_services
+- profiles  
+- categories  
+- services  
+- bookings  
+- payments  
+- saved_services  
 
-✅ Sertakan trigger & function status pembayaran.
+**Include required triggers & payment status functions.**
 
-### 5️⃣ Run Development
+### 5️⃣ Run Development Server
 
 ```bash
 npm run dev
 ```
 
-Buka di browser:  
-👉 http://localhost:3000 ✅
+Open in browser:  
+👉 http://localhost:3000
 
 ---
 
-## 📂 Struktur Direktori
+## 📂 Project Directory Structure
 
 ```
 app/
@@ -171,41 +163,42 @@ app/
   </tr>
 </table>
 
-## 🤝 Kontribusi
+---
 
-**1️⃣ Fork repo**
+## 🤝 Contributing
 
-**2️⃣ Buat branch baru**
-
-```bash
-git checkout -b fitur-baru
-```
-
-**3️⃣ Commit perubahan**
+### 1️⃣ Fork the Repository  
+### 2️⃣ Create a New Branch
 
 ```bash
-git commit -m "Menambah fitur baru"
+git checkout -b new-feature
 ```
 
-**4️⃣ Push branch**
+### 3️⃣ Commit Your Changes
 
 ```bash
-git push origin fitur-baru
+git commit -m "Add new feature"
 ```
 
-**5️⃣ Buat Pull Request ✅**
+### 4️⃣ Push the Branch
+
+```bash
+git push origin new-feature
+```
+
+### 5️⃣ Open a Pull Request
 
 ---
 
-## 📄 Lisensi
+## 📄 License
 
-Proyek ini menggunakan **MIT License**.  
-Detail ada di file `LICENSE`.
+This project is released under the **MIT License**.  
+See the `LICENSE` file for more details.
 
 ---
 
 <div align="center">
 
-⭐ **Jangan lupa kasih Star kalau project ini bermanfaat!** ⭐
+⭐ **If you like this project, consider giving it a Star!** ⭐
 
 </div>
