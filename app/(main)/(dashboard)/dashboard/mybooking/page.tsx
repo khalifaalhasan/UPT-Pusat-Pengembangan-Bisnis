@@ -3,6 +3,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { format } from "date-fns";
 import { id } from "date-fns/locale";
+import { Tables } from "@/types/supabase";
 
 // UI
 import { Card, CardContent } from "@/components/ui/card";
@@ -11,6 +12,15 @@ import { CalendarDays, Sparkles, ArrowRight } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 
 // Helper Format
+type BookingRow = Tables<"bookings">;
+export interface BookingWithService extends BookingRow {
+  service: {
+    name: string;
+    images: string[] | null; // Sesuai tipe di tabel services Anda
+    unit: string;
+  } | null;
+}
+
 const formatRupiah = (num: number) =>
   new Intl.NumberFormat("id-ID", {
     style: "currency",
@@ -194,7 +204,7 @@ export default async function UserBookingsPage() {
 }
 
 // --- SUB COMPONENT: LIST ITEM ---
-function BookingItem({ booking }: any) {
+function BookingItem({ booking }: { booking: BookingWithService }) {
   return (
     <Card className="border border-gray-200 shadow-sm overflow-hidden hover:border-blue-300 transition-colors group">
       <CardContent className="p-0 flex flex-col md:flex-row">
@@ -214,7 +224,7 @@ function BookingItem({ booking }: any) {
 
           {/* Label Unit Overlay */}
           <div className="absolute bottom-2 left-2 bg-black/60 text-white text-[10px] px-2 py-1 rounded backdrop-blur-sm">
-            {booking.service.unit === "per_day" ? "Sewa Harian" : "Sewa Jam"}
+            {booking.service?.unit === "per_day" ? "Sewa Harian" : "Sewa Jam"}
           </div>
         </div>
 
