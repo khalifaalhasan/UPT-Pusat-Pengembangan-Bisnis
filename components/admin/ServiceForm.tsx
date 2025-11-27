@@ -35,7 +35,8 @@ import { Tables } from "@/types/supabase";
 type Service = Tables<"services">;
 type Category = { id: string; name: string };
 
-// 1. SCHEMA VALIDASI
+// 1. PERBAIKAN SCHEMA
+// Hapus .coerce dan .default agar tipe datanya strict (cocok dengan useForm)
 const serviceSchema = z.object({
   name: z.string().min(2, "Nama minimal 2 karakter"),
   slug: z
@@ -43,11 +44,12 @@ const serviceSchema = z.object({
     .min(2, "Slug minimal 2 karakter")
     .regex(/^[a-z0-9-]+$/, "Slug hanya boleh huruf kecil, angka, dan strip"),
   description: z.string().min(10, "Deskripsi minimal 10 karakter"),
-  // coerce.number() mengubah string input HTML menjadi number
-  price: z.coerce.number().min(1000, "Harga minimal 1000"),
+  // Ubah ke z.number() murni. Konversi string->number kita handle di onChange inputnya.
+  price: z.number().min(1000, "Harga minimal 1000"),
   unit: z.enum(["per_day", "per_hour"]),
   category_id: z.string().min(1, "Wajib pilih kategori"),
-  is_active: z.boolean().default(true),
+  // Hapus .default() karena default value sudah dihandle di useForm
+  is_active: z.boolean(),
 });
 
 type ServiceFormValues = z.infer<typeof serviceSchema>;
@@ -83,20 +85,24 @@ export default function ServiceForm({
     return [{ key: "", value: "" }];
   });
 
-  // 2. SETUP FORM (Pakai Generic Type agar 'control' dikenali)
+  // 2. SETUP FORM
   const form = useForm<ServiceFormValues>({
     resolver: zodResolver(serviceSchema),
     defaultValues: {
       name: initialData?.name || "",
       slug: initialData?.slug || "",
       description: initialData?.description || "",
-      // Trik: Biarkan number, tapi input HTML handle string
       price: initialData?.price || 0,
       unit: (initialData?.unit as "per_day" | "per_hour") || "per_day",
       category_id: initialData?.category_id || "",
+      // Pastikan selalu return boolean, jangan undefined
       is_active: initialData?.is_active ?? true,
     },
   });
+
+  // ... (Sisa kode fetchCategories, useEffect slug, handleGenerateSlug, handleImageUpload SAMA SEPERTI SEBELUMNYA) ...
+  // Salin saja logic Fetch Categories, Auto Generate Slug, dan Upload Image dari kode lamamu ke sini.
+  // Saya skip bagian itu agar jawaban fokus ke perbaikan error.
 
   // Fetch Categories
   useEffect(() => {
@@ -134,7 +140,6 @@ export default function ServiceForm({
     }
   };
 
-  // Upload Image
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!e.target.files || e.target.files.length === 0) return;
     setUploading(true);
@@ -213,11 +218,7 @@ export default function ServiceForm({
   const addSpec = () => setSpecs([...specs, { key: "", value: "" }]);
   const removeSpec = (index: number) =>
     setSpecs(specs.filter((_, i) => i !== index));
-  const updateSpec = (
-    index: number,
-    field: "key" | "value",
-    val: string
-  ) => {
+  const updateSpec = (index: number, field: "key" | "value", val: string) => {
     const newSpecs = [...specs];
     newSpecs[index][field] = val;
     setSpecs(newSpecs);
@@ -226,6 +227,7 @@ export default function ServiceForm({
   return (
     <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+        {/* ... (FIELD NAME & SLUG SAMA SEPERTI SEBELUMNYA) ... */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <FormField
             control={form.control}
@@ -267,7 +269,7 @@ export default function ServiceForm({
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {/* FIELD HARGA (PERBAIKAN) */}
+          {/* FIELD HARGA: Logic onChange manual sudah benar untuk z.number() */}
           <FormField
             control={form.control}
             name="price"
@@ -278,13 +280,12 @@ export default function ServiceForm({
                   <Input
                     type="number"
                     placeholder="0"
-                    {...field}
-                    // Trik: Paksa konversi ke string saat render ke input HTML
-                    // Supaya value={0} dirender sebagai "0", bukan error
+                    // field.value di sini akan selalu number (atau 0)
                     value={field.value}
                     onChange={(e) => {
-                      // Parse ke number saat onChange agar state tetap number
-                      const val = e.target.value === "" ? 0 : Number(e.target.value);
+                      // Konversi string input ke number agar sesuai schema z.number()
+                      const val =
+                        e.target.value === "" ? 0 : Number(e.target.value);
                       field.onChange(val);
                     }}
                   />
@@ -293,6 +294,8 @@ export default function ServiceForm({
               </FormItem>
             )}
           />
+
+          {/* ... (FIELD UNIT, CATEGORY, DESC SAMA SEPERTI SEBELUMNYA) ... */}
           <FormField
             control={form.control}
             name="unit"
@@ -354,13 +357,18 @@ export default function ServiceForm({
             <FormItem>
               <FormLabel>Deskripsi</FormLabel>
               <FormControl>
-                <Textarea className="h-24" {...field} value={field.value || ""} />
+                <Textarea
+                  className="h-24"
+                  {...field}
+                  value={field.value || ""}
+                />
               </FormControl>
               <FormMessage />
             </FormItem>
           )}
         />
 
+        {/* ... (BAGIAN GAMBAR & SPECS SAMA SEPERTI SEBELUMNYA) ... */}
         <div>
           <FormLabel>Foto Galeri</FormLabel>
           <div className="flex gap-2 mt-2 overflow-x-auto pb-2 scrollbar-hide">
@@ -372,9 +380,7 @@ export default function ServiceForm({
                 <Image src={url} alt="Preview" fill className="object-cover" />
                 <button
                   type="button"
-                  onClick={() =>
-                    setImages(images.filter((_, i) => i !== idx))
-                  }
+                  onClick={() => setImages(images.filter((_, i) => i !== idx))}
                   className="absolute top-1 right-1 bg-red-500 text-white p-1 rounded-full opacity-0 group-hover:opacity-100 transition z-10"
                 >
                   <X className="h-3 w-3" />
@@ -441,6 +447,7 @@ export default function ServiceForm({
           ))}
         </div>
 
+        {/* FIELD IS_ACTIVE (PERBAIKAN) */}
         <FormField
           control={form.control}
           name="is_active"
