@@ -12,12 +12,14 @@ import {
   startOfDay,
   addDays,
   addHours,
-  subHours,
+  addMinutes,
+  subMinutes,
   startOfHour,
   areIntervalsOverlapping,
   differenceInDays,
-  differenceInHours,
+  differenceInMinutes,
   differenceInCalendarDays,
+  roundToNearestMinutes,
 } from "date-fns";
 import { id } from "date-fns/locale";
 import { DayPicker, DateRange } from "react-day-picker";
@@ -29,22 +31,29 @@ import {
   Clock,
   Check,
   ArrowRight,
-  Minus,
   Plus,
+  Minus,
 } from "lucide-react";
 
 // --- CUSTOM CSS ---
 const css = `
-  .rdp { --rdp-cell-size: 40px; --rdp-accent-color: #2563eb; margin: 0; }
+  .rdp { 
+    --rdp-cell-size: 40px; 
+    --rdp-accent-color: #2563eb; 
+    margin: 0; 
+  }
   .rdp-button:hover:not([disabled]) { color: #2563eb; background-color: #eff6ff; }
   
+  /* Indikator Booked (Merah) */
   .rdp-day_booked { 
     color: #ef4444 !important; 
     text-decoration: line-through; 
     opacity: 0.5; 
     pointer-events: none; 
+    font-weight: bold;
   }
 
+  /* Indikator Terpilih (Biru) */
   .rdp-day_selected:not([disabled]), 
   .rdp-day_selected:focus:not([disabled]), 
   .rdp-day_selected:active:not([disabled]), 
@@ -56,13 +65,19 @@ const css = `
 
   .rdp-day_today { color: #2563eb; font-weight: 900; }
 
+  /* Desktop Side-by-Side */
   @media (min-width: 768px) {
-    .rdp-months { display: flex !important; flex-flow: row nowrap !important; gap: 2rem; }
+    .rdp-months { 
+      display: flex !important;
+      flex-flow: row nowrap !important;
+      gap: 2rem; 
+    }
     .rdp-month { margin: 0 !important; }
     .rdp-caption { text-align: center; }
     .rdp { --rdp-cell-size: 36px; }
   }
 
+  /* Mobile Tweaks */
   @media (max-width: 768px) {
     .rdp { --rdp-cell-size: 38px; } 
     .rdp-months { justify-content: center; }
@@ -117,12 +132,19 @@ export default function ServiceHeader({
       }
       setRange({ from: potentialStart, to: potentialEnd });
     } else if (service.unit === "per_hour" && !startDate) {
-      let potentialStart = startOfHour(addHours(new Date(), 1));
+      const now = new Date();
+      let potentialStart = roundToNearestMinutes(addMinutes(now, 30), {
+        nearestTo: 30,
+      });
+      if (isBefore(potentialStart, now))
+        potentialStart = addMinutes(potentialStart, 30);
+
       let potentialEnd = addHours(potentialStart, 1);
       let attempts = 0;
+
       while (!isSlotAvailable(potentialStart, potentialEnd) && attempts < 48) {
-        potentialStart = addHours(potentialStart, 1);
-        potentialEnd = addHours(potentialStart, 1);
+        potentialStart = addMinutes(potentialStart, 30);
+        potentialEnd = addMinutes(potentialStart, 60);
         attempts++;
       }
       setStartDate(potentialStart);
@@ -170,16 +192,16 @@ export default function ServiceHeader({
 
   const handleDayClick = (date: Date) => {
     const currentHour = startDate ? startDate.getHours() : 8;
-    const newStart = setHours(setMinutes(date, 0), currentHour);
+    const currentMinute = startDate ? startDate.getMinutes() : 0;
+    const newStart = setMinutes(setHours(date, currentHour), currentMinute);
     setStartDate(newStart);
     setEndDate(addHours(newStart, 1));
     setMobileTimeTab("start");
   };
 
-  // Handler Desktop List
-  const handleStartHourClick = (hour: number) => {
+  const handleStartHourClick = (hour: number, minute: number) => {
     const baseDate = startDate || new Date();
-    const newStart = setHours(setMinutes(baseDate, 0), hour);
+    const newStart = setMinutes(setHours(baseDate, hour), minute);
     setStartDate(newStart);
     setEndDate(addHours(newStart, 1));
   };
@@ -188,25 +210,20 @@ export default function ServiceHeader({
     setEndDate(timestamp);
   };
 
-  // --- HANDLER STEPPER MOBILE (BARU) ---
   const handleMobileTimeAdjust = (
     type: "start" | "end",
     operation: "add" | "sub"
   ) => {
     if (!startDate) return;
-
     const baseDate =
       type === "start" ? startDate : endDate || addHours(startDate, 1);
     const newDate =
-      operation === "add" ? addHours(baseDate, 1) : subHours(baseDate, 1);
+      operation === "add" ? addMinutes(baseDate, 30) : subMinutes(baseDate, 30);
 
-    // Validasi Start: Tidak boleh masa lalu
     if (type === "start" && isBefore(newDate, new Date())) {
       toast.error("Waktu tidak valid");
       return;
     }
-
-    // Validasi End: Tidak boleh <= Start
     if (type === "end" && !isBefore(startDate, newDate)) {
       toast.error("Waktu selesai harus setelah waktu mulai");
       return;
@@ -214,11 +231,9 @@ export default function ServiceHeader({
 
     if (type === "start") {
       setStartDate(newDate);
-      // Jika start digeser melewati end, end ikut geser (+1 jam)
       if (
         endDate &&
-        ((isSameDay(newDate, endDate) &&
-          newDate.getHours() >= endDate.getHours()) ||
+        ((isSameDay(newDate, endDate) && newDate >= endDate) ||
           isBefore(endDate, newDate))
       ) {
         setEndDate(addHours(newDate, 1));
@@ -257,22 +272,32 @@ export default function ServiceHeader({
       if (!range?.from) return "📅 Kapan mau Check-in?";
       if (!range?.to) return "📅 Kapan mau Check-out?";
       const days = differenceInDays(range.to, range.from) || 1;
-      return `✅ Total ${days} Malam terpilih`;
+      return `✅ Sip! Total ${days} Malam terpilih`;
     } else {
       if (!startDate || !endDate) return "🕒 Pilih Jam";
-      const hours = differenceInHours(endDate, startDate);
-      return `✅ Total ${hours} Jam (${format(startDate, "HH:00")} - ${format(
+      const minutes = differenceInMinutes(endDate, startDate);
+      const hours = minutes / 60;
+      return `✅ Total ${hours} Jam (${format(startDate, "HH:mm")} - ${format(
         endDate,
-        "HH:00"
+        "HH:mm"
       )})`;
     }
+  };
+
+  const getStartHourOptions = () => {
+    const options = [];
+    for (let h = 7; h <= 22; h++) {
+      options.push({ hour: h, minute: 0 });
+      if (h !== 22) options.push({ hour: h, minute: 30 });
+    }
+    return options;
   };
 
   const getEndHourOptions = () => {
     if (!startDate) return [];
     const options = [];
-    for (let i = 1; i <= 24; i++) {
-      const nextTime = addHours(startDate, i);
+    for (let i = 1; i <= 48; i++) {
+      const nextTime = addMinutes(startDate, i * 30);
       options.push(nextTime);
     }
     return options;
@@ -355,7 +380,7 @@ export default function ServiceHeader({
                       </span>
                       <span className="text-sm font-semibold text-gray-900">
                         {startDate
-                          ? format(startDate, "dd MMM, HH:00")
+                          ? format(startDate, "dd MMM, HH:mm")
                           : "Pilih"}
                       </span>
                     </div>
@@ -365,7 +390,7 @@ export default function ServiceHeader({
                         Selesai
                       </span>
                       <span className="text-sm font-semibold text-gray-900">
-                        {endDate ? format(endDate, "dd MMM, HH:00") : "Pilih"}
+                        {endDate ? format(endDate, "dd MMM, HH:mm") : "Pilih"}
                       </span>
                     </div>
                   </div>
@@ -387,7 +412,7 @@ export default function ServiceHeader({
                     className={`
                             absolute z-50 bg-white shadow-2xl border border-gray-100 overflow-hidden flex flex-col rounded-2xl
                             fixed-mobile-bottom
-                            md:top-[110%] md:left-1/2 md:-translate-x-1/2 md:w-[680px]
+                            md:top-[110%] md:left-1/2 md:-translate-x-1/2 md:w-[750px]
                         `}
                   >
                     <div className="bg-blue-50 px-4 py-3 border-b border-blue-100 flex items-center justify-between shrink-0">
@@ -402,7 +427,7 @@ export default function ServiceHeader({
                       </button>
                     </div>
 
-                    <div className="flex flex-col md:flex-row h-full md:h-auto">
+                    <div className="flex flex-col md:flex-row h-full max-h-[75vh] md:max-h-none">
                       {/* 1. KALENDER */}
                       <div
                         className={`p-4 flex justify-center items-start border-b md:border-b-0 md:border-r border-gray-100 ${
@@ -438,25 +463,104 @@ export default function ServiceHeader({
                         )}
                       </div>
 
-                      {/* 2. JAM SELECTOR (DESKTOP ONLY) */}
+                      {/* 2. JAM SELECTOR */}
                       {service.unit === "per_hour" && (
-                        <div className="hidden md:flex flex-row w-full md:w-auto divide-x divide-gray-100 h-[320px]">
-                          <div className="flex-1 flex flex-col w-36 h-full">
+                        <div className="flex flex-col w-full md:w-auto md:flex-row md:divide-x divide-gray-100 h-full md:h-[320px]">
+                          {/* Mobile Tab */}
+                          <div className="flex md:hidden p-2 bg-gray-50 gap-2 border-b border-gray-100 shrink-0">
+                            <button
+                              onClick={() => setMobileTimeTab("start")}
+                              className={`flex-1 py-2 text-xs font-bold rounded-md transition ${
+                                mobileTimeTab === "start"
+                                  ? "bg-blue-600 text-white shadow"
+                                  : "text-gray-500"
+                              }`}
+                            >
+                              MULAI
+                            </button>
+                            <button
+                              onClick={() => setMobileTimeTab("end")}
+                              className={`flex-1 py-2 text-xs font-bold rounded-md transition ${
+                                mobileTimeTab === "end"
+                                  ? "bg-blue-600 text-white shadow"
+                                  : "text-gray-500"
+                              }`}
+                            >
+                              SELESAI
+                            </button>
+                          </div>
+
+                          {/* Mobile Stepper */}
+                          <div className="md:hidden w-full bg-slate-50 p-4">
+                            <div className="flex items-center justify-between bg-white p-4 rounded-xl border border-gray-200 shadow-sm">
+                              <button
+                                onClick={() =>
+                                  handleMobileTimeAdjust(mobileTimeTab, "sub")
+                                }
+                                className="w-12 h-12 flex items-center justify-center bg-slate-100 rounded-full text-slate-600 hover:bg-slate-200 active:scale-95 transition"
+                              >
+                                <Minus className="w-5 h-5" />
+                              </button>
+                              <div className="text-center">
+                                <span className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-1">
+                                  {mobileTimeTab === "start"
+                                    ? "Jam Mulai"
+                                    : "Jam Selesai"}
+                                </span>
+                                <span className="block text-3xl font-bold text-blue-600">
+                                  {mobileTimeTab === "start"
+                                    ? startDate
+                                      ? format(startDate, "HH:mm")
+                                      : "--:--"
+                                    : endDate
+                                    ? format(endDate, "HH:mm")
+                                    : "--:--"}
+                                </span>
+                                <span className="block text-xs text-gray-500 mt-1">
+                                  {mobileTimeTab === "start"
+                                    ? startDate
+                                      ? format(startDate, "dd MMM")
+                                      : "-"
+                                    : endDate
+                                    ? format(endDate, "dd MMM")
+                                    : "-"}
+                                </span>
+                              </div>
+                              <button
+                                onClick={() =>
+                                  handleMobileTimeAdjust(mobileTimeTab, "add")
+                                }
+                                className="w-12 h-12 flex items-center justify-center bg-blue-600 rounded-full text-white hover:bg-blue-700 active:scale-95 transition"
+                              >
+                                <Plus className="w-5 h-5" />
+                              </button>
+                            </div>
+                          </div>
+
+                          {/* Desktop Lists */}
+                          <div className="hidden md:flex flex-1 p-0 flex-col w-36 h-full">
                             <div className="p-3 bg-white sticky top-0 border-b font-bold text-xs text-gray-500 uppercase text-center z-10">
                               Mulai
                             </div>
                             <div className="p-2 space-y-1 overflow-y-auto custom-scrollbar flex-1">
-                              {Array.from({ length: 24 }).map((_, h) => {
+                              {getStartHourOptions().map((t, i) => {
                                 const isDisabled =
                                   startDate &&
                                   isSameDay(startDate, new Date()) &&
-                                  h < new Date().getHours();
-                                const isSelected = startDate?.getHours() === h;
+                                  (t.hour < new Date().getHours() ||
+                                    (t.hour === new Date().getHours() &&
+                                      t.minute < new Date().getMinutes()));
+                                const isSelected =
+                                  startDate &&
+                                  startDate.getHours() === t.hour &&
+                                  startDate.getMinutes() === t.minute;
                                 return (
                                   <button
-                                    key={h}
-                                    disabled={isDisabled}
-                                    onClick={() => handleStartHourClick(h)}
+                                    key={i}
+                                    disabled={isDisabled || false}
+                                    onClick={() =>
+                                      handleStartHourClick(t.hour, t.minute)
+                                    }
                                     className={`w-full py-2 text-sm rounded-md transition block text-center ${
                                       isDisabled
                                         ? "opacity-30 cursor-not-allowed"
@@ -467,13 +571,15 @@ export default function ServiceHeader({
                                         : "text-gray-700"
                                     }`}
                                   >
-                                    {h.toString().padStart(2, "0")}:00
+                                    {t.hour.toString().padStart(2, "0")}:
+                                    {t.minute.toString().padStart(2, "0")}
                                   </button>
                                 );
                               })}
                             </div>
                           </div>
-                          <div className="flex-1 flex flex-col w-44 bg-gray-50/50 h-full">
+
+                          <div className="hidden md:flex flex-1 p-0 flex-col w-44 bg-gray-50/50 h-full">
                             <div className="p-3 bg-gray-50 sticky top-0 border-b font-bold text-xs text-gray-500 uppercase text-center z-10">
                               Selesai
                             </div>
@@ -508,10 +614,10 @@ export default function ServiceHeader({
                                           : "text-gray-700"
                                       }`}
                                     >
-                                      <span>{format(timeObj, "HH:00")}</span>
+                                      <span>{format(timeObj, "HH:mm")}</span>
                                       {dayDiff > 0 && (
                                         <span className="text-[10px] opacity-70">
-                                          (+{dayDiff}hr)
+                                          (+{dayDiff})
                                         </span>
                                       )}
                                     </button>
@@ -526,94 +632,38 @@ export default function ServiceHeader({
                           </div>
                         </div>
                       )}
-
-                      {/* 3. JAM STEPPER (MOBILE ONLY - BARU) */}
-                      {service.unit === "per_hour" && (
-                        <div className="md:hidden w-full bg-slate-50 p-4 flex flex-col gap-4">
-                          {/* TAB SWITCHER */}
-                          <div className="flex p-1 bg-white rounded-lg border border-gray-200">
-                            <button
-                              onClick={() => setMobileTimeTab("start")}
-                              className={`flex-1 py-2 text-xs font-bold rounded-md transition ${
-                                mobileTimeTab === "start"
-                                  ? "bg-blue-600 text-white shadow"
-                                  : "text-gray-500"
-                              }`}
-                            >
-                              MULAI
-                            </button>
-                            <button
-                              onClick={() => setMobileTimeTab("end")}
-                              className={`flex-1 py-2 text-xs font-bold rounded-md transition ${
-                                mobileTimeTab === "end"
-                                  ? "bg-blue-600 text-white shadow"
-                                  : "text-gray-500"
-                              }`}
-                            >
-                              SELESAI
-                            </button>
-                          </div>
-
-                          {/* STEPPER CONTROL */}
-                          <div className="flex items-center justify-between bg-white p-4 rounded-xl border border-gray-200 shadow-sm">
-                            <button
-                              onClick={() =>
-                                handleMobileTimeAdjust(mobileTimeTab, "sub")
-                              }
-                              className="w-12 h-12 flex items-center justify-center bg-slate-100 rounded-full text-slate-600 hover:bg-slate-200 active:scale-95 transition"
-                            >
-                              <Minus className="w-5 h-5" />
-                            </button>
-
-                            <div className="text-center">
-                              <span className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-1">
-                                {mobileTimeTab === "start"
-                                  ? "Jam Mulai"
-                                  : "Jam Selesai"}
-                              </span>
-                              <span className="block text-3xl font-bold text-blue-600">
-                                {mobileTimeTab === "start"
-                                  ? startDate
-                                    ? format(startDate, "HH:00")
-                                    : "--:--"
-                                  : endDate
-                                  ? format(endDate, "HH:00")
-                                  : "--:--"}
-                              </span>
-                              <span className="block text-xs text-gray-500 mt-1">
-                                {mobileTimeTab === "start"
-                                  ? startDate
-                                    ? format(startDate, "dd MMM yyyy", {
-                                        locale: id,
-                                      })
-                                    : "-"
-                                  : endDate
-                                  ? format(endDate, "dd MMM yyyy", {
-                                      locale: id,
-                                    })
-                                  : "-"}
-                              </span>
-                            </div>
-
-                            <button
-                              onClick={() =>
-                                handleMobileTimeAdjust(mobileTimeTab, "add")
-                              }
-                              className="w-12 h-12 flex items-center justify-center bg-blue-600 rounded-full text-white hover:bg-blue-700 active:scale-95 transition"
-                            >
-                              <Plus className="w-5 h-5" />
-                            </button>
-                          </div>
-                        </div>
-                      )}
                     </div>
 
-                    <div className="p-3 bg-gray-50 border-t border-gray-100 flex justify-end shrink-0">
+                    {/* --- FOOTER: KONFIRMASI & LEGEND --- */}
+                    <div className="p-3 bg-gray-50 border-t border-gray-100 flex flex-col-reverse md:flex-row items-center justify-between gap-4 shrink-0">
+                      {/* Legend Indikator (DITAMBAHKAN KEMBALI) */}
+                      <div className="flex gap-3 text-[10px] md:text-xs text-gray-500 pl-2">
+                        <div className="flex items-center gap-1.5">
+                          <div className="w-2.5 h-2.5 rounded-full bg-blue-600"></div>{" "}
+                          Pilih
+                        </div>
+                        {service.unit === "per_hour" && (
+                          <div className="flex items-center gap-1.5">
+                            <div className="w-2.5 h-2.5 rounded-full bg-green-600"></div>{" "}
+                            Selesai
+                          </div>
+                        )}
+                        <div className="flex items-center gap-1.5">
+                          <div className="w-2.5 h-2.5 rounded-full bg-red-500"></div>{" "}
+                          Penuh
+                        </div>
+                        <div className="flex items-center gap-1.5">
+                          <div className="w-2.5 h-2.5 rounded-full border border-gray-300 bg-white"></div>{" "}
+                          Kosong
+                        </div>
+                      </div>
+
                       <button
                         onClick={handleApply}
-                        className="bg-blue-600 hover:bg-blue-700 text-white text-sm font-bold py-2 px-6 rounded-lg transition active:scale-95 flex items-center gap-2 shadow-sm"
+                        className="bg-blue-600 hover:bg-blue-700 text-white text-sm font-bold py-2 px-6 rounded-lg transition active:scale-95 flex items-center gap-2 shadow-sm w-full md:w-auto justify-center"
                       >
-                        <Check className="w-4 h-4" /> Terapkan
+                        <Check className="w-4 h-4" />
+                        Terapkan
                       </button>
                     </div>
                   </div>
@@ -652,7 +702,7 @@ export default function ServiceHeader({
   );
 }
 
-// ... DateTimeTrigger Component sama ...
+// ... DateTimeTrigger sama ...
 interface DateTimeTriggerProps {
   label: string;
   value: Date | undefined;
@@ -682,7 +732,7 @@ function DateTimeTrigger({
       <div className="text-sm font-bold text-gray-900 flex items-center gap-2 overflow-hidden">
         {value ? (
           <>
-            <span className="text-blue-600">{format(value, "HH:00")}</span>
+            <span className="text-blue-600">{format(value, "HH:mm")}</span>
             <span className="text-gray-400 font-normal text-xs truncate">
               {format(value, "dd MMM", { locale: id })}
             </span>
