@@ -1,6 +1,6 @@
 import { createClient } from "@/utils/supabase/server";
 import Link from "next/link";
-import ServiceHeader from "@/components/Service/ServiceHeader";
+import ServiceHeader from "@/components/service/ServiceHeader";
 import { notFound } from "next/navigation";
 import { Tables } from "@/types/supabase";
 import Image from "next/image";
