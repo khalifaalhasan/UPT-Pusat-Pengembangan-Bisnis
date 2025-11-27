@@ -58,9 +58,7 @@ export default async function ServiceDetailPage(props: {
 
   return (
     <div className="min-h-screen bg-white font-sans">
-      <div className="sticky top-16 z-40 bg-white shadow-sm">
-        <ServiceHeader service={service} existingBookings={bookings || []} />
-      </div>
+      <ServiceHeader service={service} existingBookings={bookings || []} />
 
       <div className="container mx-auto px-4 py-8">
         {/* Breadcrumb */}
