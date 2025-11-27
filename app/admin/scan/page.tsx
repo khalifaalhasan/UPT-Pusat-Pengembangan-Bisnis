@@ -2,33 +2,48 @@
 
 import { useState } from 'react';
 import { createClient } from '@/utils/supabase/client';
-import { Scanner } from '@yudiel/react-qr-scanner';
+import { Scanner, IDetectedBarcode } from '@yudiel/react-qr-scanner'; // Tambah IDetectedBarcode
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { CheckCircle2, XCircle, RefreshCcw, Loader2 } from 'lucide-react';
 import { toast } from "sonner";
 
+// 1. Definisikan Tipe Data untuk Booking
+interface BookingData {
+  id: string;
+  status: string;
+  customer_name: string;
+  start_time: string;
+  service: {
+    name: string;
+  };
+  profile: {
+    full_name: string;
+  } | null;
+}
+
 export default function AdminScanPage() {
   const supabase = createClient();
-  
+   
   // State
   const [scannedResult, setScannedResult] = useState<string | null>(null);
-  const [bookingData, setBookingData] = useState<any>(null);
+  // 2. Gunakan tipe BookingData | null, jangan any
+  const [bookingData, setBookingData] = useState<BookingData | null>(null);
   const [loading, setLoading] = useState(false);
-  const [isScanning, setIsScanning] = useState(true); // Kontrol kamera
+  const [isScanning, setIsScanning] = useState(true);
 
   // Fungsi saat QR terbaca
   const handleScan = async (text: string) => {
     if (!text || loading) return;
     
-    // Matikan scanner sementara biar gak scan berkali-kali
+    // Matikan scanner
     setIsScanning(false);
     setLoading(true);
     setScannedResult(text);
 
     try {
-      // 1. Cek ke Database berdasarkan ID dari QR
+      // 1. Cek ke Database
       const { data, error } = await supabase
         .from('bookings')
         .select(`
@@ -36,14 +51,15 @@ export default function AdminScanPage() {
           service:services (name),
           profile:profiles (full_name)
         `)
-        .eq('id', text) // Asumsi QR isinya UUID Booking
+        .eq('id', text)
         .single();
 
       if (error || !data) {
         throw new Error("Data booking tidak ditemukan!");
       }
 
-      setBookingData(data);
+      // Casting data ke tipe BookingData (aman karena kita tahu strukturnya)
+      setBookingData(data as unknown as BookingData);
       
       // Feedback Visual
       if (data.status === 'confirmed') {
@@ -52,15 +68,20 @@ export default function AdminScanPage() {
         toast.error("Tiket Tidak Valid / Belum Lunas");
       }
 
-    } catch (err: any) {
-      toast.error(err.message);
+    // 3. Handling Error yang benar (unknown)
+    } catch (err: unknown) {
+      let message = "Terjadi kesalahan";
+      if (err instanceof Error) {
+        message = err.message;
+      }
+      toast.error(message);
       setBookingData(null);
     } finally {
       setLoading(false);
     }
   };
 
-  // Fungsi Reset untuk scan lagi
+  // Fungsi Reset
   const handleReset = () => {
     setScannedResult(null);
     setBookingData(null);
@@ -80,16 +101,27 @@ export default function AdminScanPage() {
 
       <Card className="overflow-hidden">
         <CardContent className="p-0 relative bg-black min-h-[300px] flex items-center justify-center">
-          
+           
           {/* AREA KAMERA */}
           {isScanning ? (
             <Scanner 
-              onResult={(result) => handleScan(result)}
-              onError={(error) => console.log(error?.message)}
-              options={{
-                delayBetweenScanAttempts: 500,
-                constraints: { facingMode: 'environment' } // Pakai kamera belakang
+              // 4. Update Props Scanner sesuai versi terbaru
+              // onResult diganti onScan, dan menerima array detectedCodes
+              onScan={(detectedCodes: IDetectedBarcode[]) => {
+                if (detectedCodes.length > 0) {
+                   handleScan(detectedCodes[0].rawValue);
+                }
               }}
+              onError={(error: unknown) => {
+                 // Handling error scanner
+                 if (error instanceof Error) {
+                    console.log(error.message);
+                 }
+              }}
+              // options untuk delay dipindah ke prop scanDelay
+              scanDelay={500}
+              // constraints diatur langsung atau via prop components (tergantung versi, tapi constraints biasanya langsung)
+              constraints={{ facingMode: 'environment' }}
               styles={{
                 container: { width: '100%', height: '100%' }
               }}
@@ -109,8 +141,8 @@ export default function AdminScanPage() {
                 )}
             </div>
           )}
-          
-          {/* Overlay Garis Scan (Hiasan) */}
+           
+          {/* Overlay Garis Scan */}
           {isScanning && (
              <div className="absolute inset-0 border-2 border-blue-500/50 m-12 rounded-lg pointer-events-none animate-pulse"></div>
           )}
@@ -137,7 +169,7 @@ export default function AdminScanPage() {
           <CardContent className="pt-4 space-y-3">
             <div>
                 <p className="text-xs text-gray-500 uppercase">Nama Layanan</p>
-                <p className="font-bold text-gray-900">{bookingData.service.name}</p>
+                <p className="font-bold text-gray-900">{bookingData.service?.name}</p>
             </div>
             <div className="grid grid-cols-2 gap-4">
                 <div>
@@ -149,8 +181,8 @@ export default function AdminScanPage() {
                     <p className="font-medium">{new Date(bookingData.start_time).toLocaleDateString('id-ID')}</p>
                 </div>
             </div>
-            
-            {/* Tombol Check-in (Opsional) */}
+             
+            {/* Tombol Check-in */}
             {bookingData.status === 'confirmed' && (
                 <Button className="w-full mt-4 bg-blue-600 hover:bg-blue-700">
                     ✅ Konfirmasi Check-in Tamu
