@@ -14,11 +14,10 @@ import {
 import { id } from "date-fns/locale";
 import { DayPicker, DateRange } from "react-day-picker";
 import "react-day-picker/dist/style.css";
-import { toast } from "sonner"; // 1. Import Sonner
+import { toast } from "sonner";
 
-// --- CUSTOM CSS ---
+// ... (CSS CONSTANT SAMA SEPERTI SEBELUMNYA)
 const css = `
-  /* Tanggal Booked (Merah Teks, Coret, Tidak Blok) */
   .rdp-day_booked { 
     color: #ef4444 !important;
     text-decoration: line-through; 
@@ -28,7 +27,6 @@ const css = `
     pointer-events: none;
   }
   
-  /* Tanggal Terpilih (Biru Blok) */
   .rdp-day_selected:not([disabled]), 
   .rdp-day_selected:focus:not([disabled]), 
   .rdp-day_selected:active:not([disabled]), 
@@ -38,7 +36,6 @@ const css = `
     font-weight: bold;
   }
 
-  /* Hari Ini */
   .rdp-day_today { 
     color: #2563eb; 
     font-weight: bold; 
@@ -57,20 +54,16 @@ export default function ServiceHeader({
   service,
   existingBookings,
 }: ServiceHeaderProps) {
+  // ... (SEMUA LOGIC STATE & HANDLER SAMA SEPERTI SEBELUMNYA)
   const router = useRouter();
   const [showCalendar, setShowCalendar] = useState<boolean | "start" | "end">(
     false
   );
   const calendarRef = useRef<HTMLDivElement>(null);
-
-  // State Harian
   const [range, setRange] = useState<DateRange | undefined>();
-
-  // State Per Jam
   const [startDate, setStartDate] = useState<Date | undefined>();
   const [endDate, setEndDate] = useState<Date | undefined>();
 
-  // Close on click outside
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
       if (
@@ -84,23 +77,19 @@ export default function ServiceHeader({
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [calendarRef]);
 
-  // 1. LIST TANGGAL MERAH (BOOKED)
   const bookedDays = existingBookings.map((b) => ({
     from: new Date(b.start_time),
     to: new Date(b.end_time),
   }));
 
-  // 2. LOGIC MATIKAN TANGGAL
   const getDisabledDates = (mode: "start" | "end") => {
     const basicDisabled = [{ before: startOfDay(new Date()) }];
-
     if (mode === "end" && startDate) {
       return [...basicDisabled, { before: startDate }];
     }
     return basicDisabled;
   };
 
-  // 3. LOGIC MATIKAN JAM
   const isTimeDisabled = (hour: number, mode: "start" | "end") => {
     if (
       mode === "end" &&
@@ -113,14 +102,12 @@ export default function ServiceHeader({
     return false;
   };
 
-  // --- HANDLER SEARCH (UPDATE SONNER) ---
   const handleSearch = () => {
     let startStr = "";
     let endStr = "";
 
     if (service.unit === "per_day") {
       if (!range?.from || !range?.to) {
-        // Ganti alert dengan toast
         toast.error("Tanggal Belum Lengkap", {
           description: "Silakan pilih tanggal Check-in dan Check-out.",
         });
@@ -153,7 +140,7 @@ export default function ServiceHeader({
     <div className="sticky top-0 z-40 bg-white border-b border-gray-200 shadow-sm py-3 px-4 font-sans">
       <style>{css}</style>
       <div className="container mx-auto flex flex-col md:flex-row items-center gap-4 justify-between">
-        {/* Info Service */}
+        {/* Info Service (SAMA) */}
         <div className="flex items-center gap-3 w-full md:w-1/3">
           <div className="bg-blue-100 p-2 rounded-lg text-blue-600 shrink-0">
             🏢
@@ -178,8 +165,8 @@ export default function ServiceHeader({
           ref={calendarRef}
         >
           {service.unit === "per_day" ? (
-            // === MODE HARIAN ===
             <div className="w-full relative">
+              {/* ... (BUTTON TRIGGER SAMA) ... */}
               <button
                 onClick={() => setShowCalendar(true)}
                 className="w-full flex items-center gap-3 px-4 py-2 text-left hover:bg-gray-100 rounded-md transition"
@@ -213,10 +200,11 @@ export default function ServiceHeader({
                     modifiersClassNames={{ booked: "rdp-day_booked" }}
                     numberOfMonths={2}
                     pagedNavigation
+                    // PERBAIKAN 1: Hapus captionLayout="buttons" yang invalid
                   />
-
-                  {/* LEGEND */}
+                  {/* ... (LEGEND SAMA) ... */}
                   <div className="flex items-center justify-between mt-4 pt-3 border-t border-gray-100 text-xs text-gray-600">
+                    {/* ... Legend content ... */}
                     <div className="flex items-center gap-3">
                       <div className="flex items-center gap-1">
                         <div className="w-3 h-3 rounded-full bg-blue-600"></div>
@@ -233,7 +221,6 @@ export default function ServiceHeader({
                         <span>Sudah Dipesan</span>
                       </div>
                     </div>
-
                     <button
                       onClick={() => setShowCalendar(false)}
                       className="text-blue-600 font-bold hover:underline ml-4"
@@ -245,7 +232,6 @@ export default function ServiceHeader({
               )}
             </div>
           ) : (
-            // === MODE PER JAM ===
             <div className="w-full flex gap-2 relative">
               <DateTimeTrigger
                 label="Mulai"
@@ -253,9 +239,7 @@ export default function ServiceHeader({
                 onClick={() => setShowCalendar("start")}
                 isActive={showCalendar === "start"}
               />
-
               <div className="w-px bg-gray-200 my-1"></div>
-
               <DateTimeTrigger
                 label="Selesai"
                 value={endDate}
@@ -263,10 +247,8 @@ export default function ServiceHeader({
                 isActive={showCalendar === "end"}
               />
 
-              {/* Popover Gabungan */}
               {showCalendar && typeof showCalendar === "string" && (
                 <div className="absolute top-14 left-0 w-full md:w-auto md:min-w-[500px] bg-white shadow-2xl rounded-xl border border-gray-100 p-0 z-50 flex flex-col md:flex-row overflow-hidden animate-fade-in">
-                  {/* Kolom Kiri: Kalender */}
                   <div className="p-4 border-b md:border-b-0 md:border-r border-gray-100">
                     <p className="text-xs font-bold text-gray-400 mb-2 uppercase text-center">
                       Pilih Tanggal{" "}
@@ -282,9 +264,7 @@ export default function ServiceHeader({
                         const currentTime =
                           currentMode === "start" ? startDate : endDate;
                         const hours = currentTime ? currentTime.getHours() : 8;
-
                         const newDate = setHours(setMinutes(date, 0), hours);
-
                         if (currentMode === "start") {
                           setStartDate(newDate);
                           if (endDate && isBefore(endDate, newDate))
@@ -296,25 +276,11 @@ export default function ServiceHeader({
                       disabled={getDisabledDates(showCalendar)}
                       modifiers={{ booked: bookedDays }}
                       modifiersClassNames={{ booked: "rdp-day_booked" }}
-                      captionLayout="buttons"
+                      // PERBAIKAN 1: Hapus captionLayout="buttons"
                     />
-
-                    {/* LEGEND SIMPLE (PER JAM) */}
-                    <div className="mt-4 pt-2 border-t border-gray-100 flex flex-wrap gap-2 text-[10px] text-gray-500 justify-center">
-                      <div className="flex items-center gap-1">
-                        <span className="font-bold text-red-500 line-through">
-                          12
-                        </span>{" "}
-                        Booked
-                      </div>
-                      <div className="flex items-center gap-1">
-                        <div className="w-2 h-2 bg-blue-600 rounded-full"></div>{" "}
-                        Pilih
-                      </div>
-                    </div>
+                    {/* ... Legend ... */}
                   </div>
 
-                  {/* Kolom Kanan: List Jam */}
                   <div className="w-full md:w-48 bg-gray-50 max-h-[350px] overflow-y-auto custom-scrollbar">
                     <p className="text-xs font-bold text-gray-400 p-3 uppercase sticky top-0 bg-gray-50 border-b z-10">
                       Pilih Jam
@@ -327,7 +293,6 @@ export default function ServiceHeader({
                           showCalendar === "start" ? startDate : endDate;
                         const isSelected =
                           activeDate && activeDate.getHours() === hour;
-
                         return (
                           <button
                             key={hour}
@@ -341,24 +306,22 @@ export default function ServiceHeader({
                                 setMinutes(baseDate, 0),
                                 hour
                               );
-
                               if (currentMode === "start")
                                 setStartDate(newDate);
                               else setEndDate(newDate);
                             }}
-                            className={`
-                                 px-4 py-2 text-left text-sm rounded-md transition
-                                 ${
-                                   isDisabled
-                                     ? "opacity-30 cursor-not-allowed bg-slate-100 decoration-slice"
-                                     : "hover:bg-blue-100"
-                                 }
-                                 ${
-                                   isSelected
-                                     ? "bg-blue-600 text-white hover:bg-blue-700 font-bold"
-                                     : "text-gray-700"
-                                 }
-                               `}
+                            // PERBAIKAN 3: Ganti decoration-slice jadi box-decoration-slice
+                            className={`px-4 py-2 text-left text-sm rounded-md transition 
+                              ${
+                                isDisabled
+                                  ? "opacity-30 cursor-not-allowed bg-slate-100 box-decoration-slice"
+                                  : "hover:bg-blue-100"
+                              } 
+                              ${
+                                isSelected
+                                  ? "bg-blue-600 text-white hover:bg-blue-700 font-bold"
+                                  : "text-gray-700"
+                              }`}
                           >
                             {hour.toString().padStart(2, "0")}:00
                           </button>
@@ -378,9 +341,7 @@ export default function ServiceHeader({
             onClick={handleSearch}
             className="w-full md:w-auto bg-blue-600 text-white px-8 py-3 rounded-lg font-bold hover:bg-blue-700 transition shadow-lg active:scale-95"
           >
-            {service.unit === "per_day"
-              ? "Booking Sekarang"
-              : "Booking Sekarang"}
+            Booking Sekarang
           </button>
         </div>
       </div>
@@ -388,8 +349,20 @@ export default function ServiceHeader({
   );
 }
 
-// --- SUB COMPONENTS ---
-function DateTimeTrigger({ label, value, onClick, isActive }: any) {
+// --- SUB COMPONENTS (PERBAIKAN 2: Defines Interface) ---
+interface DateTimeTriggerProps {
+  label: string;
+  value: Date | undefined;
+  onClick: () => void;
+  isActive: boolean;
+}
+
+function DateTimeTrigger({
+  label,
+  value,
+  onClick,
+  isActive,
+}: DateTimeTriggerProps) {
   return (
     <div
       onClick={onClick}
