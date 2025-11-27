@@ -11,7 +11,6 @@ import {
   CreditCard,
   CheckCircle2,
   AlertCircle,
-  FileText,
   Hourglass,
   MessageCircle,
 } from "lucide-react";
@@ -19,8 +18,17 @@ import {
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Separator } from "@/components/ui/separator";
 import DownloadTicketButton from "@/components/booking/DownloadTicketButton";
+
+import { Tables } from "@/types/supabase";
+
+type ServiceWithCategory = Tables<"services"> & {
+  categories: Tables<"categories"> | null; // Tambahkan relasi categories di sini
+};
+type BookingDetailData = Tables<"bookings"> & {
+  service: ServiceWithCategory; // Single object (karena join)
+  payments: Tables<"payments">[]; // Array object (karena one-to-many)
+};
 
 interface PageProps {
   params: Promise<{ id: string }>;
@@ -35,14 +43,25 @@ export default async function BookingDetailPage({ params }: PageProps) {
   } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
-  const { data: booking, error } = await supabase
+  const { data, error } = await supabase
     .from("bookings")
-    .select(`*, service:services (*), payments (*)`)
+    .select(
+      `
+    *,
+    service:services (
+      *,
+      categories (*)  
+    ),
+    payments (*)
+  `
+    )
     .eq("id", bookingId)
     .eq("user_id", user.id)
     .single();
 
-  if (error || !booking) notFound();
+  if (error || !data) notFound();
+
+  const booking = data as unknown as BookingDetailData;
 
   // --- HELPER ---
   const formatRupiah = (num: number) =>
@@ -59,7 +78,7 @@ export default async function BookingDetailPage({ params }: PageProps) {
   // --- LOGIC PENCEGAH DOUBLE PAY ---
   // Cek apakah ada pembayaran yang masih 'pending' (belum diverifikasi admin)
   const payments = booking.payments || [];
-  const hasPendingPayment = payments.some((p: any) => p.status === "pending");
+  const hasPendingPayment = payments.some((p) => p.status === "pending");
 
   // --- KALKULASI HARGA ---
   const startDate = new Date(booking.start_time);
@@ -258,7 +277,7 @@ export default async function BookingDetailPage({ params }: PageProps) {
             <CardContent>
               {booking.payments && booking.payments.length > 0 ? (
                 <div className="space-y-4">
-                  {booking.payments.map((pay: any) => (
+                  {booking.payments.map((pay: Tables<"payments">) => (
                     <div
                       key={pay.id}
                       className="flex justify-between items-center border-b border-slate-50 pb-3 last:border-0 last:pb-0"
