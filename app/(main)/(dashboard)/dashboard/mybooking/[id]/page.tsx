@@ -167,7 +167,7 @@ export default async function BookingDetailPage({ params }: PageProps) {
 
   // Link WA (Dynamic Message)
   const waMessage = `Halo Admin, saya sudah melakukan pembayaran untuk Order ID: ${booking.id}. Mohon segera diverifikasi. Terima kasih.`;
-  const waLink = `https://wa.me/6281234567890?text=${encodeURIComponent(
+  const waLink = `https://wa.me/6285709461646?text=${encodeURIComponent(
     waMessage
   )}`;
 
