@@ -2,7 +2,7 @@ import { createClient } from "@/utils/supabase/server";
 import ServiceManager from "@/components/admin/ServiceManager";
 import { Tables } from "@/types/supabase";
 
-// Kita export tipe ini supaya bisa dipakai di ServiceManager juga
+// 1. EXPORT Tipe Data ini agar bisa dipakai di ServiceManager.tsx
 export type ServiceWithCategory = Tables<"services"> & {
   categories: {
     name: string;
@@ -12,20 +12,40 @@ export type ServiceWithCategory = Tables<"services"> & {
 export default async function AdminServicesPage() {
   const supabase = await createClient();
 
-  const { data: services } = await supabase
+  // Fetch Data + Kategori
+  const { data: services, error } = await supabase
     .from("services")
     .select(
       `
       *,
-      categories (
-        name
-      )
+      categories ( name )
     `
     )
     .order("created_at", { ascending: false });
 
-  // Casting aman dari unknown ke tipe custom kita
+  if (error) {
+    return <div className="p-8 text-red-500">Gagal memuat data layanan.</div>;
+  }
+
+  // 2. Casting data dari Supabase ke tipe custom kita
+  // 'as unknown as ...' digunakan untuk bridging tipe yang aman
   const typedServices = (services as unknown as ServiceWithCategory[]) || [];
 
-  return <ServiceManager initialServices={typedServices} />;
+  return (
+    <div className="space-y-6">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-slate-900">
+            Kelola Layanan
+          </h1>
+          <p className="text-slate-500 text-sm">
+            Daftar gedung, kendaraan, dan aset yang disewakan.
+          </p>
+        </div>
+      </div>
+
+      {/* 3. Pass data ke Client Component */}
+      <ServiceManager initialServices={typedServices} />
+    </div>
+  );
 }
